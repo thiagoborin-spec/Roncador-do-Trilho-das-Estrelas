@@ -1064,17 +1064,23 @@
             nextTurn() {
                 if (this.checkWinCondition()) return;
 
+                // Tira o próximo personagem da fila
                 this.activeChar = this.turnQueue.shift();
-                this.turnQueue.push(this.activeChar);
 
-                if (this.activeChar.currentHp <= 0) {
-                    return this.nextTurn();
+                // Se não houver ninguém na fila (erro raro) ou personagem morto, tenta o próximo
+                if (!this.activeChar || this.activeChar.currentHp <= 0) {
+                    if (this.turnQueue.length > 0) return this.nextTurn();
+                    return;
                 }
+
+                // Coloca de volta no final da fila para o próximo round
+                this.turnQueue.push(this.activeChar);
 
                 ui.setActiveTurnIndicator(this.activeChar);
                 const canAct = this.processStatusEffects(this.activeChar);
                 ui.updateCombatUI(this.allChars);
 
+                // Checa vitória novamente após efeitos de status (veneno/sangramento podem matar)
                 if (this.checkWinCondition()) return;
 
                 if (!canAct) {
@@ -1191,18 +1197,22 @@
             },
 
             checkWinCondition() {
-                // Se as equipes ainda não foram carregadas, não checa vitória
-                if (this.team1.length === 0 || this.team2.length === 0) return false;
+                // Se as equipes ainda não foram carregadas com 3 membros, não checa vitória
+                if (this.team1.length < 3 || this.team2.length < 3) return false;
 
-                const team1Alive = this.team1.some(c => c.currentHp > 0);
-                const team2Alive = this.team2.some(c => c.currentHp > 0);
+                const team1Alive = this.team1.filter(c => c.currentHp > 0);
+                const team2Alive = this.team2.filter(c => c.currentHp > 0);
 
-                // Só declara vitória se houver alguém morto E equipe adversária totalmente morta
-                if (!team1Alive || !team2Alive) {
-                    let winner = !team1Alive ? 2 : 1;
-                    ui.showVictoryScreen(winner);
+                // Vitória se uma equipe estiver totalmente sem membros vivos
+                if (team1Alive.length === 0) {
+                    ui.showVictoryScreen(2);
                     return true;
                 }
+                if (team2Alive.length === 0) {
+                    ui.showVictoryScreen(1);
+                    return true;
+                }
+
                 return false;
             },
 
