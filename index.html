@@ -1036,66 +1036,99 @@
             team1: [],
             team2: [],
             allChars: [],
-            turnQueue: [],
+            activeTeam: 1,
             activeChar: null,
             selectedSkill: null,
             isSoloMode: false,
+            waitingForSelection: true,
+            battleActive: false,
 
             init(team1, team2, mode) {
                 this.team1 = team1;
                 this.team2 = team2;
                 this.isSoloMode = (mode === 'solo');
                 this.allChars = [...this.team1, ...this.team2];
-                this.turnQueue = [];
+                this.activeTeam = 1;
+                this.activeChar = null;
+                this.waitingForSelection = true;
+                this.battleActive = true;
 
-                for (let i = 0; i < 3; i++) {
-                    if (this.team1[i]) this.turnQueue.push(this.team1[i]);
-                    if (this.team2[i]) this.turnQueue.push(this.team2[i]);
-                }
-
-                ui.hideVictoryScreen(); // Garante que a tela de vitória esteja escondida
+                ui.hideVictoryScreen();
                 ui.renderCombatTeams(this.team1, this.team2);
                 ui.updateCombatUI(this.allChars);
-                ui.logMessage("Iniciativa definida!", "info");
+                ui.logMessage("A batalha começou! Turno da Equipe 1.", "info");
 
-                setTimeout(() => this.nextTurn(), 1000);
+                this.startTeamTurn();
             },
 
-            nextTurn() {
+            startTeamTurn() {
                 if (this.checkWinCondition()) return;
 
-                // Tira o próximo personagem da fila
-                this.activeChar = this.turnQueue.shift();
+                this.activeChar = null;
+                this.selectedSkill = null;
+                this.waitingForSelection = true;
 
-                // Se não houver ninguém na fila (erro raro) ou personagem morto, tenta o próximo
-                if (!this.activeChar || this.activeChar.currentHp <= 0) {
-                    if (this.turnQueue.length > 0) return this.nextTurn();
-                    return;
-                }
+                ui.hideActionPanel();
+                ui.hideTargetPrompt();
+                ui.clearTargetsSelectable();
 
-                // Coloca de volta no final da fila para o próximo round
-                this.turnQueue.push(this.activeChar);
+                const teamName = this.activeTeam === 1 ? "Equipe 1" : "Equipe 2";
+                ui.logMessage(`Vez da ${teamName}. Clique em um personagem para agir.`, "info");
+                document.getElementById('turn-announcer').innerText = `Turno: ${teamName}`;
 
-                ui.setActiveTurnIndicator(this.activeChar);
-                const canAct = this.processStatusEffects(this.activeChar);
-                ui.updateCombatUI(this.allChars);
-
-                // Checa vitória novamente após efeitos de status (veneno/sangramento podem matar)
-                if (this.checkWinCondition()) return;
-
-                if (!canAct) {
-                    ui.logMessage(`${this.activeChar.name} está atordoado e pula a vez!`, "info");
-                    setTimeout(() => this.nextTurn(), 1500);
-                    return;
-                }
-
-                ui.logMessage(`É a vez de ${this.activeChar.name}.`, "info");
-
-                if (this.isSoloMode && this.activeChar.team === 2) {
+                // IA no modo solo
+                if (this.isSoloMode && this.activeTeam === 2) {
                     setTimeout(() => this.runAITurn(), 1500);
                 } else {
-                    ui.showActionPanel(this.activeChar, (skill) => this.prepareSkill(skill));
+                    // Highlight personagens da equipe ativa que podem agir
+                    this.highlightTeamSelectable();
                 }
+            },
+
+            highlightTeamSelectable() {
+                const team = this.activeTeam === 1 ? this.team1 : this.team2;
+                ui.clearTargetsSelectable();
+                team.forEach(char => {
+                    if (char.currentHp > 0) {
+                        const el = document.getElementById(`combat-char-${char.uid}`);
+                        if (el) el.classList.add('targetable'); // Reutilizando a classe de destaque
+                    }
+                });
+            },
+
+            handleTargetClick(targetUid) {
+                if (!this.battleActive) return;
+
+                const clickedChar = this.allChars.find(c => c.uid === targetUid);
+                if (!clickedChar || clickedChar.currentHp <= 0) return;
+
+                // Caso 1: Estamos selecionando QUEM vai agir na equipe atual
+                if (this.waitingForSelection) {
+                    if (clickedChar.team === this.activeTeam) {
+                        this.selectCharacter(clickedChar);
+                    } else {
+                        ui.logMessage(`Ainda não é a vez da Equipe ${clickedChar.team}.`, "info");
+                    }
+                    return;
+                }
+
+                // Caso 2: Já escolhemos o personagem e a skill, agora estamos escolhendo o ALVO inimigo
+                if (this.selectedSkill && !this.selectedSkill.isAoE) {
+                    if (clickedChar.team !== this.activeTeam) {
+                        this.executeSkill([clickedChar]);
+                    } else {
+                        ui.logMessage("Você não pode atacar sua própria equipe!", "info");
+                    }
+                }
+            },
+
+            selectCharacter(char) {
+                this.activeChar = char;
+                this.waitingForSelection = false;
+                ui.clearTargetsSelectable();
+                ui.setActiveTurnIndicator(char);
+                ui.showActionPanel(char, (skill) => this.prepareSkill(skill));
+                ui.logMessage(`${char.name} selecionado. Escolha uma habilidade.`);
             },
 
             processStatusEffects(char) {
@@ -1115,45 +1148,37 @@
             },
 
             prepareSkill(skill) {
-                this.selectedSkill = skill;
+                // Checa efeitos de status antes de agir
+                const canAct = this.processStatusEffects(this.activeChar);
+                ui.updateCombatUI(this.allChars);
 
-                if (skill.isAoE) {
-                    this.executeSkill([]);
-                } else {
-                    ui.showTargetPrompt();
-                    const enemies = this.activeChar.team === 1 ? this.team2 : this.team1;
-                    ui.setTargetsSelectable(enemies);
-                }
-            },
+                if (this.checkWinCondition()) return;
 
-            handleTargetClick(targetUid) {
-                if (!this.selectedSkill || this.selectedSkill.isAoE) return;
-
-                const target = this.allChars.find(c => c.uid === targetUid);
-                if (!target || target.currentHp <= 0) return;
-
-                if (target.team === this.activeChar.team) {
-                    ui.logMessage("Você deve selecionar um membro da equipe adversária!", "info");
+                if (!canAct) {
+                    ui.logMessage(`${this.activeChar.name} está atordoado e perdeu o turno!`, "info");
+                    this.finishTurn();
                     return;
                 }
 
-                this.executeSkill([target]);
-            },
-
-            cancelSkill() {
-                this.selectedSkill = null;
-                ui.hideTargetPrompt();
-                ui.clearTargetsSelectable();
+                this.selectedSkill = skill;
+                if (skill.isAoE) {
+                    this.executeSkill([]); // AOE não precisa de alvo manual
+                } else {
+                    ui.showTargetPrompt();
+                    const enemies = this.activeTeam === 1 ? this.team2 : this.team1;
+                    ui.setTargetsSelectable(enemies);
+                }
             },
 
             executeSkill(targets) {
                 const skill = this.selectedSkill;
                 if (!skill) return;
+
                 ui.hideActionPanel();
                 ui.hideTargetPrompt();
                 ui.clearTargetsSelectable();
 
-                const enemies = this.activeChar.team === 1 ? this.team2 : this.team1;
+                const enemies = this.activeTeam === 1 ? this.team2 : this.team1;
                 const actualTargets = skill.isAoE ? enemies.filter(e => e.currentHp > 0) : targets;
 
                 ui.logMessage(`${this.activeChar.name} usa ${skill.name}!`, "info");
@@ -1178,8 +1203,15 @@
                 });
 
                 ui.updateCombatUI(this.allChars);
-                this.selectedSkill = null;
-                setTimeout(() => this.nextTurn(), 2000);
+                setTimeout(() => this.finishTurn(), 1500);
+            },
+
+            finishTurn() {
+                if (this.checkWinCondition()) return;
+
+                // Muda de equipe
+                this.activeTeam = this.activeTeam === 1 ? 2 : 1;
+                this.startTeamTurn();
             },
 
             applyDamage(targetChar, amount, showFloating) {
@@ -1197,18 +1229,19 @@
             },
 
             checkWinCondition() {
-                // Se as equipes ainda não foram carregadas com 3 membros, não checa vitória
-                if (this.team1.length < 3 || this.team2.length < 3) return false;
+                // Só checa se a batalha estiver ativa e houver personagens
+                if (!this.battleActive || this.team1.length < 3 || this.team2.length < 3) return false;
 
-                const team1Alive = this.team1.filter(c => c.currentHp > 0);
-                const team2Alive = this.team2.filter(c => c.currentHp > 0);
+                const team1Alive = this.team1.filter(c => c.currentHp > 0).length;
+                const team2Alive = this.team2.filter(c => c.currentHp > 0).length;
 
-                // Vitória se uma equipe estiver totalmente sem membros vivos
-                if (team1Alive.length === 0) {
+                if (team1Alive === 0) {
+                    this.battleActive = false;
                     ui.showVictoryScreen(2);
                     return true;
                 }
-                if (team2Alive.length === 0) {
+                if (team2Alive === 0) {
+                    this.battleActive = false;
                     ui.showVictoryScreen(1);
                     return true;
                 }
@@ -1217,36 +1250,42 @@
             },
 
             runAITurn() {
-                const enemiesAlive = this.team1.filter(c => c.currentHp > 0);
-                if (enemiesAlive.length === 0) return;
+                const teamAlive = this.team2.filter(c => c.currentHp > 0);
+                if (teamAlive.length === 0) return;
 
-                let chosenSkill = null;
-                let chosenTarget = null;
+                // IA seleciona um personagem aleatório para agir
+                const randomChar = teamAlive[Math.floor(Math.random() * teamAlive.length)];
+                this.selectCharacter(randomChar);
 
-                const stunSkill = this.activeChar.skills.find(s => s.effect && s.effect.type === 'Stun');
-                if (stunSkill) {
-                    chosenSkill = stunSkill;
-                    chosenTarget = enemiesAlive.reduce((max, obj) => obj.atk > max.atk ? obj : max, enemiesAlive[0]);
-                }
-                else if (enemiesAlive.length > 1) {
-                    const aoeSkill = this.activeChar.skills.find(s => s.isAoE);
-                    if (aoeSkill) {
-                        chosenSkill = aoeSkill;
+                setTimeout(() => {
+                    const enemiesAlive = this.team1.filter(c => c.currentHp > 0);
+                    if (enemiesAlive.length === 0) return;
+
+                    let chosenSkill = null;
+                    let chosenTarget = null;
+
+                    const stunSkill = this.activeChar.skills.find(s => s.effect && s.effect.type === 'Stun');
+                    if (stunSkill) {
+                        chosenSkill = stunSkill;
+                        chosenTarget = enemiesAlive.reduce((max, obj) => obj.atk > max.atk ? obj : max, enemiesAlive[0]);
                     }
-                }
+                    else if (enemiesAlive.length > 1) {
+                        const aoeSkill = this.activeChar.skills.find(s => s.isAoE);
+                        if (aoeSkill) chosenSkill = aoeSkill;
+                    }
 
-                if (!chosenSkill) {
-                    chosenSkill = this.activeChar.skills.reduce((max, obj) => obj.damageMult > max.damageMult ? obj : max, this.activeChar.skills[0]);
-                    chosenTarget = enemiesAlive.reduce((min, obj) => obj.currentHp < min.currentHp ? obj : min, enemiesAlive[0]);
-                }
+                    if (!chosenSkill) {
+                        chosenSkill = this.activeChar.skills.reduce((max, obj) => obj.damageMult > max.damageMult ? obj : max, this.activeChar.skills[0]);
+                        chosenTarget = enemiesAlive.reduce((min, obj) => obj.currentHp < min.currentHp ? obj : min, enemiesAlive[0]);
+                    }
 
-                if (chosenSkill.isAoE) {
                     this.selectedSkill = chosenSkill;
-                    this.executeSkill([]);
-                } else {
-                    this.selectedSkill = chosenSkill;
-                    this.executeSkill([chosenTarget]);
-                }
+                    if (chosenSkill.isAoE) {
+                        this.executeSkill([]);
+                    } else {
+                        this.executeSkill([chosenTarget]);
+                    }
+                }, 1000);
             }
         };
     </script>
