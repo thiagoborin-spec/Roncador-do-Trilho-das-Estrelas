@@ -1051,6 +1051,7 @@
                     if (this.team2[i]) this.turnQueue.push(this.team2[i]);
                 }
 
+                ui.hideVictoryScreen(); // Garante que a tela de vitória esteja escondida
                 ui.renderCombatTeams(this.team1, this.team2);
                 ui.updateCombatUI(this.allChars);
                 ui.logMessage("Iniciativa definida!", "info");
@@ -1121,7 +1122,7 @@
                 if (!this.selectedSkill || this.selectedSkill.isAoE) return;
 
                 const target = this.allChars.find(c => c.uid === targetUid);
-                if (!target || target.hp <= 0) return;
+                if (!target || target.currentHp <= 0) return;
 
                 if (target.team === this.activeChar.team) {
                     ui.logMessage("Você deve selecionar um membro da equipe adversária!", "info");
