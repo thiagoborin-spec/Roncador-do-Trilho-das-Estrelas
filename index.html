@@ -1026,6 +1026,8 @@
                 document.getElementById('combat-log').innerHTML = '<li>A batalha começou!</li>';
                 document.getElementById('combat-team-1').innerHTML = '';
                 document.getElementById('combat-team-2').innerHTML = '';
+                combat.team1 = [];
+                combat.team2 = [];
             }
         };
 
@@ -1189,9 +1191,13 @@
             },
 
             checkWinCondition() {
+                // Se as equipes ainda não foram carregadas, não checa vitória
+                if (this.team1.length === 0 || this.team2.length === 0) return false;
+
                 const team1Alive = this.team1.some(c => c.currentHp > 0);
                 const team2Alive = this.team2.some(c => c.currentHp > 0);
 
+                // Só declara vitória se houver alguém morto E equipe adversária totalmente morta
                 if (!team1Alive || !team2Alive) {
                     let winner = !team1Alive ? 2 : 1;
                     ui.showVictoryScreen(winner);
