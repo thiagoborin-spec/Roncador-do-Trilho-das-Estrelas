@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star-Step Tactics</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Rajdhani:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050b14;
+            --panel-bg: rgba(16, 25, 43, 0.7);
+            --border-color: rgba(94, 153, 255, 0.3);
+            --glow-color: rgba(94, 153, 255, 0.6);
+            --text-main: #e0e6ed;
+            --text-muted: #8c9bb3;
+            --accent-gold: #f2c94c;
+            --accent-blue: #00d2ff;
+            --accent-red: #ff3366;
+
+            --hp-green: #27ae60;
+            --hp-red: #e74c3c;
+            --font-ui: 'Outfit', sans-serif;
+            --font-heading: 'Rajdhani', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-ui);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-image: radial-gradient(circle at center, #0a1128 0%, #02050a 100%);
+        }
+
+        #particle-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 0;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><circle cx="200" cy="200" r="1.5" fill="%23ffffff" opacity="0.3"/><circle cx="50" cy="80" r="1" fill="%23ffffff" opacity="0.5"/><circle cx="350" cy="300" r="2" fill="%2300d2ff" opacity="0.4"/></svg>') repeat;
+            animation: drift 60s linear infinite;
+        }
+
+        @keyframes drift {
+            from {
+                background-position: 0 0;
+            }
+
+            to {
+                background-position: -400px -400px;
+            }
+        }
+
+        #app {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 1280px;
+            height: 100vh;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 2rem;
+        }
+
+        .screen.active {
+            opacity: 1;
+            pointer-events: all;
+            position: relative;
+        }
+
+        .screen.hidden {
+            display: none;
+        }
+
+        /* Typography */
+        h1,
+        h2,
+        h3 {
+            font-family: var(--font-heading);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        h1.title {
+            font-size: 5rem;
+            text-align: center;
+            margin-top: 10vh;
+            text-shadow: 0 0 20px rgba(0, 210, 255, 0.4);
+        }
+
+        .accent {
+            color: var(--accent-gold);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            letter-spacing: 5px;
+            margin-bottom: 4rem;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            color: var(--accent-blue);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Buttons */
+        .btn {
+            position: relative;
+            background: rgba(16, 25, 43, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 1rem 3rem;
+            font-size: 1.2rem;
+            font-family: var(--font-heading);
+            font-weight: 600;
+            letter-spacing: 2px;
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+            backdrop-filter: blur(5px);
+        }
+
+        .btn:hover {
+            background: rgba(30, 45, 75, 0.9);
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 15px var(--glow-color);
+            transform: translateY(-2px);
+        }
+
+        .btn.primary {
+            border-color: var(--accent-gold);
+            color: var(--accent-gold);
+        }
+
+        .btn.primary:hover {
+            box-shadow: 0 0 15px rgba(242, 201, 76, 0.4);
+        }
+
+        .menu-options {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        /* Draft Phase */
+        .draft-info {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .char-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            backdrop-filter: blur(10px);
+        }
+
+        .char-card:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-5px);
+        }
+
+        .char-card.selected {
+            opacity: 0.5;
+            pointer-events: none;
+            border-color: var(--text-muted);
+        }
+
+        .char-type {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .type-stc {
+            background: rgba(255, 51, 102, 0.2);
+            color: var(--accent-red);
+        }
+
+        .type-aoe {
+            background: rgba(0, 210, 255, 0.2);
+            color: var(--accent-blue);
+        }
+
+        .selected-teams {
+            display: flex;
+            justify-content: space-between;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .team-draft {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .slots {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .slot {
+            flex: 1;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px dashed var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            border-radius: 4px;
+        }
+
+        .slot.filled {
+            border-style: solid;
+            border-color: var(--accent-blue);
+            background: rgba(0, 210, 255, 0.1);
+        }
+
+        /* Combat Screen */
+        .combat-header {
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .turn-indicator {
+            font-family: var(--font-heading);
+            font-size: 2rem;
+            color: var(--accent-gold);
+            text-shadow: 0 0 10px rgba(242, 201, 76, 0.5);
+        }
+
+        .arena {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex: 1;
+            margin: 2rem 0;
+            perspective: 1000px;
+        }
+
+        .vs-badge {
+            font-family: var(--font-heading);
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            opacity: 0.5;
+        }
+
+        .team-side {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            width: 300px;
+        }
+
+        .combat-char {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            border-radius: 8px;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .combat-char.active-turn {
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 15px rgba(242, 201, 76, 0.3);
+            transform: scale(1.05);
+        }
+
+        .combat-char.targetable {
+            cursor: crosshair;
+            border-color: var(--accent-red);
+            animation: pulse-red 1.5s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 51, 102, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(255, 51, 102, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 51, 102, 0);
+            }
+        }
+
+        .hp-bar-container {
+            width: 100%;
+            height: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 5px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+
+        .hp-bar {
+            height: 100%;
+            background: var(--hp-green);
+            width: 100%;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        .status-effects {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            min-height: 20px;
+        }
+
+        .status-icon {
+            font-size: 0.8rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .status-icon.bleed {
+            color: #ff5e5e;
+            border: 1px solid #ff5e5e;
+        }
+
+        .status-icon.poison {
+            color: #a55eea;
+            border: 1px solid #a55eea;
+        }
+
+        .status-icon.stun {
+            color: #fed330;
+            border: 1px solid #fed330;
+        }
+
+        .combat-log-container {
+            height: 120px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            overflow-y: auto;
+            padding: 1rem;
+            font-size: 0.9rem;
+            font-family: monospace;
+        }
+
+        #combat-log {
+            list-style: none;
+        }
+
+        #combat-log li {
+            margin-bottom: 0.3rem;
+            color: var(--text-muted);
+        }
+
+        #combat-log li .dmg {
+            color: var(--accent-red);
+        }
+
+        #combat-log li .heal {
+            color: var(--hp-green);
+        }
+
+        #combat-log li .info {
+            color: var(--accent-blue);
+        }
+
+        .action-panel {
+            background: var(--panel-bg);
+            border-top: 2px solid var(--accent-blue);
+            padding: 1.5rem;
+            margin-top: 1rem;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .skills-container {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .skill-btn {
+            flex: 1;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .skill-btn:hover {
+            background: rgba(0, 210, 255, 0.1);
+            border-color: var(--accent-blue);
+        }
+
+        .skill-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .skill-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.3rem;
+        }
+
+        .target-prompt {
+            margin-top: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 51, 102, 0.1);
+            padding: 1rem;
+            border-radius: 4px;
+            border: 1px solid var(--accent-red);
+        }
+
+        .btn.small {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        /* Victory Overlay */
+        .victory-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .victory-overlay h1 {
+            font-size: 6rem;
+            color: var(--accent-gold);
+            margin-bottom: 1rem;
+            text-shadow: 0 0 30px rgba(242, 201, 76, 0.6);
+        }
+
+        .floating-dmg {
+            position: absolute;
+            font-weight: bold;
+            font-size: 1.5rem;
+            color: var(--accent-red);
+            text-shadow: 0 0 5px black;
+            animation: floatUp 1s ease forwards;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        @keyframes floatUp {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(-50px) scale(1.5);
+                opacity: 0;
+            }
+        }
+
+        .combat-char.dead {
+            opacity: 0.3;
+            filter: grayscale(100%);
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="particle-bg"></div>
+    <div id="app">
+        <!-- TELA 1: Main Menu -->
+        <section id="main-menu" class="screen active">
+            <h1 class="title">STAR-STEP <span class="accent">TACTICS</span></h1>
+            <p class="subtitle">PROJECT: NEBULA</p>
+
+            <div class="menu-options">
+                <button class="btn primary" onclick="game.startDraft('solo')">
+                    <span class="btn-text">MODO SOLO (VS IA)</span>
+                    <span class="btn-glow"></span>
+                </button>
+                <button class="btn secondary" onclick="game.startDraft('duel')">
+                    <span class="btn-text">MODO DUELO (1v1)</span>
+                    <span class="btn-glow"></span>
+                </button>
+            </div>
+        </section>
+
+        <!-- TELA 2: Draft Phase -->
+        <section id="draft-phase" class="screen hidden">
+            <h2 class="section-title">SELEÇÃO DE EQUIPE: <span id="draft-turn-indicator">JOGADOR 1</span></h2>
+            <div class="draft-info">Escolha 3 heróis para formar seu esquadrão tático. (<span
+                    id="draft-count">0/3</span>)</div>
+
+            <div id="character-pool" class="grid-container">
+                <!-- Personagens injetados dinamicamente via JS -->
+            </div>
+
+            <div class="selected-teams">
+                <div class="team-draft" id="draft-team-1">
+                    <h3>EQUIPE 1</h3>
+                    <div class="slots" id="slots-team-1"></div>
+                </div>
+                <div class="team-draft" id="draft-team-2">
+                    <h3>EQUIPE <span id="team-2-label">2</span></h3>
+                    <div class="slots" id="slots-team-2"></div>
+                </div>
+            </div>
+
+            <button id="btn-start-combat" class="btn primary hidden" onclick="game.startCombat()">
+                <span class="btn-text">INICIAR COMBATE</span>
+            </button>
+        </section>
+
+        <!-- TELA 3: Combat Screen -->
+        <section id="combat-screen" class="screen hidden">
+            <div class="combat-header">
+                <div class="turn-indicator" id="turn-announcer">Turno de: Jogador 1</div>
+            </div>
+
+            <div class="arena">
+                <div class="team-side" id="combat-team-1">
+                    <!-- Equipe 1 Injetada Aqui -->
+                </div>
+                <div class="vs-badge">VS</div>
+                <div class="team-side" id="combat-team-2">
+                    <!-- Equipe 2 Injetada Aqui -->
+                </div>
+            </div>
+
+            <div class="combat-log-container">
+                <ul id="combat-log">
+                    <li>A batalha começou!</li>
+                </ul>
+            </div>
+
+            <!-- Painel de Ações do Turno (Controlado pelo Jogador Atual) -->
+            <div class="action-panel hidden" id="action-panel">
+                <h3 id="active-character-name">Personagem Ativo</h3>
+                <div class="skills-container" id="skills-container">
+                    <!-- Botões de habilidades gerados no JS -->
+                </div>
+                <!-- Prompt para seleção de alvo -->
+                <div id="target-prompt" class="target-prompt hidden">
+                    <p>Selecione um alvo na equipe adversária!</p>
+                    <button class="btn small" onclick="combat.cancelSkill()">Cancelar</button>
+                </div>
+            </div>
+
+            <!-- Tela de Vitória -->
+            <div id="victory-screen" class="victory-overlay hidden">
+                <h1 id="victory-title">VITÓRIA!</h1>
+                <p id="victory-subtitle">A poeira cósmica baixou.</p>
+                <button class="btn primary" onclick="game.returnToMenu()">RETORNAR AO MENU</button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // js/characters.js
+        const characterPool = [
+            {
+                id: "stc_hunter",
+                name: "Galactic Hunter",
+                type: "STC",
+                hp: 120,
+                maxHp: 120,
+                atk: 25,
+                skills: [
+                    { id: "s1", name: "Plasma Shot", damageMult: 1.0, isAoE: false, effect: null, desc: "Causa dano moderado a um inimigo." },
+                    { id: "s2", name: "Sniper Execution", damageMult: 2.5, isAoE: false, effect: null, desc: "Causa dano massivo a um único inimigo." },
+                    { id: "s3", name: "Toxic Rounds", damageMult: 0.5, isAoE: false, effect: { type: "Poison", duration: 3, dmg: 10 }, desc: "Dano leve e aplica Veneno (10 dmg) por 3 turnos." }
+                ]
+            },
+            {
+                id: "stc_assassin",
+                name: "Void Assassin",
+                type: "STC",
+                hp: 100,
+                maxHp: 100,
+                atk: 30,
+                skills: [
+                    { id: "s1", name: "Shadow Strike", damageMult: 1.0, isAoE: false, effect: null, desc: "Ataque rápido de alvo único." },
+                    { id: "s2", name: "Lethal Pierce", damageMult: 2.2, isAoE: false, effect: null, desc: "Dano severo a um alvo." },
+                    { id: "s3", name: "Deep Cut", damageMult: 0.8, isAoE: false, effect: { type: "Bleed", duration: 2, dmg: 15 }, desc: "Sangramento que causa 15 de dano por 2 turnos." }
+                ]
+            },
+            {
+                id: "stc_piercer",
+                name: "Star-Piercer",
+                type: "STC",
+                hp: 110,
+                maxHp: 110,
+                atk: 28,
+                skills: [
+                    { id: "s1", name: "Lance Thrust", damageMult: 1.0, isAoE: false, effect: null, desc: "Avanço com lança." },
+                    { id: "s2", name: "Meteor Strike", damageMult: 2.0, isAoE: false, effect: null, desc: "Cai como um meteoro sobre um alvo." },
+                    { id: "s3", name: "Shield Breaker", damageMult: 1.2, isAoE: false, effect: { type: "DefDown", duration: 2, value: 0.5 }, desc: "Ignora defesas, aplica Fraqueza (dano recebido +50%) por 2 turnos." }
+                ]
+            },
+            {
+                id: "aoe_mage",
+                name: "Nebula Mage",
+                type: "AOE",
+                hp: 90,
+                maxHp: 90,
+                atk: 20,
+                skills: [
+                    { id: "s1", name: "Energy Bolt", damageMult: 1.0, isAoE: false, effect: null, desc: "Ataque mágico básico." },
+                    { id: "s2", name: "Supernova", damageMult: 1.2, isAoE: true, effect: null, desc: "Causa dano em área a todos os inimigos." },
+                    { id: "s3", name: "Graviton Field", damageMult: 0.5, isAoE: true, effect: { type: "SpeedDown", duration: 2 }, desc: "Dano leve em área." }
+                ]
+            },
+            {
+                id: "aoe_chronos",
+                name: "Chronos Controller",
+                type: "AOE",
+                hp: 95,
+                maxHp: 95,
+                atk: 18,
+                skills: [
+                    { id: "s1", name: "Time Rift", damageMult: 1.0, isAoE: false, effect: null, desc: "Corta o espaço-tempo em um alvo." },
+                    { id: "s2", name: "Paradox Blast", damageMult: 1.0, isAoE: true, effect: null, desc: "Dano colateral em toda a equipe." },
+                    { id: "s3", name: "Time Stop", damageMult: 0.2, isAoE: false, effect: { type: "Stun", duration: 1 }, desc: "Dano minúsculo, mas aplica Stun (impede ação) por 1 turno." }
+                ]
+            },
+            {
+                id: "aoe_weaver",
+                name: "Cosmic Weaver",
+                type: "AOE",
+                hp: 105,
+                maxHp: 105,
+                atk: 15,
+                skills: [
+                    { id: "s1", name: "Star Thread", damageMult: 1.0, isAoE: false, effect: null, desc: "Dano básico em alvo." },
+                    { id: "s2", name: "Constellation", damageMult: 0.8, isAoE: true, effect: { type: "Poison", duration: 2, dmg: 5 }, desc: "Dano menor em todos, aplica Veneno fraco." },
+                    { id: "s3", name: "Singularity", damageMult: 1.5, isAoE: true, effect: null, desc: "Dano pesado em área." }
+                ]
+            }
+        ];
+
+        function cloneCharacter(charId) {
+            const template = characterPool.find(c => c.id === charId);
+            if (!template) return null;
+
+            return {
+                ...template,
+                uid: Math.random().toString(36).substr(2, 9),
+                currentHp: template.maxHp,
+                statusEffects: []
+            };
+        }
+
+        // js/ui.js
+        const ui = {
+            screens: {
+                menu: document.getElementById('main-menu'),
+                draft: document.getElementById('draft-phase'),
+                combat: document.getElementById('combat-screen')
+            },
+
+            showScreen(screenId) {
+                Object.values(this.screens).forEach(screen => {
+                    screen.classList.remove('active');
+                    screen.classList.add('hidden');
+                });
+                this.screens[screenId].classList.remove('hidden');
+                setTimeout(() => this.screens[screenId].classList.add('active'), 50);
+            },
+
+            renderDraftPool(pool, onSelect) {
+                const container = document.getElementById('character-pool');
+                container.innerHTML = '';
+                pool.forEach(char => {
+                    const card = document.createElement('div');
+                    card.className = 'char-card';
+                    card.id = `draft-card-${char.id}`;
+                    card.innerHTML = `
+                        <span class="char-type type-${char.type.toLowerCase()}">${char.type}</span>
+                        <h3>${char.name}</h3>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;">HP: ${char.hp} | ATK: ${char.atk}</p>
+                    `;
+                    card.onclick = () => onSelect(char.id);
+                    container.appendChild(card);
+                });
+            },
+
+            updateDraftSlots(teamId, currentPicks) {
+                const slotsContainer = document.getElementById(`slots-team-${teamId}`);
+                slotsContainer.innerHTML = '';
+
+                for (let i = 0; i < 3; i++) {
+                    const slot = document.createElement('div');
+                    slot.className = 'slot';
+                    if (currentPicks[i]) {
+                        const char = characterPool.find(c => c.id === currentPicks[i]);
+                        slot.classList.add('filled');
+                        slot.innerHTML = `<strong>${char.name}</strong>`;
+                    } else {
+                        slot.innerText = `Vazio`;
+                    }
+                    slotsContainer.appendChild(slot);
+                }
+            },
+
+            setDraftTurn(playerNum, count) {
+                document.getElementById('draft-turn-indicator').innerText = `JOGADOR ${playerNum}${game.mode === 'solo' && playerNum === 2 ? ' (IA)' : ''}`;
+                document.getElementById('draft-count').innerText = `${count}/3`;
+                if (game.mode === 'solo' && playerNum === 2) {
+                    document.getElementById('character-pool').style.pointerEvents = 'none';
+                } else {
+                    document.getElementById('character-pool').style.pointerEvents = 'all';
+                }
+            },
+
+            showStartCombatButton() {
+                document.getElementById('btn-start-combat').classList.remove('hidden');
+            },
+
+            renderCombatTeams(team1, team2) {
+                const renderTeam = (team, containerId) => {
+                    const container = document.getElementById(containerId);
+                    container.innerHTML = '';
+                    team.forEach(char => {
+                        const el = document.createElement('div');
+                        el.className = 'combat-char';
+                        el.id = `combat-char-${char.uid}`;
+                        el.innerHTML = `
+                            <h4>${char.name}</h4>
+                            <div class="hp-bar-container">
+                                <div class="hp-bar" id="hp-bar-${char.uid}" style="width: 100%"></div>
+                            </div>
+                            <div style="font-size:12px; margin-top:2px;">
+                                <span id="hp-text-${char.uid}">${char.currentHp}/${char.maxHp}</span>
+                            </div>
+                            <div class="status-effects" id="status-${char.uid}"></div>
+                        `;
+                        el.onclick = () => combat.handleTargetClick(char.uid);
+                        container.appendChild(el);
+                    });
+                };
+                renderTeam(team1, 'combat-team-1');
+                renderTeam(team2, 'combat-team-2');
+            },
+
+            updateCombatUI(allChars) {
+                allChars.forEach(char => {
+                    const el = document.getElementById(`combat-char-${char.uid}`);
+                    if (!el) return;
+
+                    const hpPercent = Math.max(0, (char.currentHp / char.maxHp) * 100);
+                    const hbBar = document.getElementById(`hp-bar-${char.uid}`);
+                    hbBar.style.width = `${hpPercent}%`;
+                    document.getElementById(`hp-text-${char.uid}`).innerText = `${char.currentHp}/${char.maxHp}`;
+
+                    if (hpPercent < 30) hbBar.style.backgroundColor = 'var(--hp-red)';
+                    else hbBar.style.backgroundColor = 'var(--hp-green)';
+
+                    if (char.currentHp <= 0) {
+                        el.classList.add('dead');
+                    } else {
+                        el.classList.remove('dead');
+                    }
+
+                    const statusContainer = document.getElementById(`status-${char.uid}`);
+                    statusContainer.innerHTML = '';
+                    char.statusEffects.forEach(effect => {
+                        const badge = document.createElement('span');
+                        badge.className = `status-icon ${effect.type.toLowerCase()}`;
+                        badge.innerText = `${effect.type} (${effect.duration})`;
+                        statusContainer.appendChild(badge);
+                    });
+                });
+            },
+
+            setActiveTurnIndicator(char) {
+                document.querySelectorAll('.combat-char').forEach(el => el.classList.remove('active-turn'));
+                if (char && char.currentHp > 0) {
+                    const el = document.getElementById(`combat-char-${char.uid}`);
+                    if (el) el.classList.add('active-turn');
+                    document.getElementById('turn-announcer').innerText = `Turno de: ${char.name} (Equipe ${char.team})`;
+                }
+            },
+
+            showActionPanel(char, onSkillSelect) {
+                const panel = document.getElementById('action-panel');
+                panel.classList.remove('hidden');
+                document.getElementById('active-character-name').innerText = char.name;
+
+                const skillsContainer = document.getElementById('skills-container');
+                skillsContainer.innerHTML = '';
+
+                char.skills.forEach(skill => {
+                    const btn = document.createElement('button');
+                    btn.className = 'skill-btn';
+                    btn.innerHTML = `
+                        <div class="skill-name">${skill.name}</div>
+                        <div class="skill-desc">${skill.desc}</div>
+                    `;
+                    btn.onclick = () => onSkillSelect(skill);
+                    skillsContainer.appendChild(btn);
+                });
+            },
+
+            hideActionPanel() {
+                document.getElementById('action-panel').classList.add('hidden');
+            },
+
+            showTargetPrompt() {
+                document.getElementById('skills-container').classList.add('hidden');
+                document.getElementById('target-prompt').classList.remove('hidden');
+            },
+
+            hideTargetPrompt() {
+                document.getElementById('skills-container').classList.remove('hidden');
+                document.getElementById('target-prompt').classList.add('hidden');
+            },
+
+            setTargetsSelectable(validTargets) {
+                document.querySelectorAll('.combat-char').forEach(el => el.classList.remove('targetable'));
+                validTargets.forEach(char => {
+                    if (char.currentHp > 0) {
+                        const el = document.getElementById(`combat-char-${char.uid}`);
+                        if (el) el.classList.add('targetable');
+                    }
+                });
+            },
+
+            clearTargetsSelectable() {
+                document.querySelectorAll('.combat-char').forEach(el => el.classList.remove('targetable'));
+            },
+
+            logMessage(msg, type = 'info') {
+                const log = document.getElementById('combat-log');
+                const li = document.createElement('li');
+                li.innerHTML = `<span class="${type}">[Log]</span> ${msg}`;
+                log.appendChild(li);
+                const container = document.querySelector('.combat-log-container');
+                container.scrollTop = container.scrollHeight;
+            },
+
+            showFloatingDamage(charUid, amount, isHeal = false) {
+                const parent = document.getElementById(`combat-char-${charUid}`);
+                if (!parent) return;
+
+                const floatEl = document.createElement('div');
+                floatEl.className = 'floating-dmg';
+                floatEl.innerText = isHeal ? `+${amount}` : `-${amount}`;
+                if (isHeal) floatEl.style.color = 'var(--hp-green)';
+
+                floatEl.style.left = `${40 + Math.random() * 20}%`;
+                floatEl.style.top = `20%`;
+
+                parent.appendChild(floatEl);
+
+                setTimeout(() => {
+                    if (parent.contains(floatEl)) parent.removeChild(floatEl);
+                }, 1000);
+            },
+
+            showVictoryScreen(teamWon) {
+                const overlay = document.getElementById('victory-screen');
+                overlay.classList.remove('hidden');
+                document.getElementById('victory-title').innerText = `EQUIPE ${teamWon} VENCEU!`;
+            },
+
+            hideVictoryScreen() {
+                document.getElementById('victory-screen').classList.add('hidden');
+            }
+        };
+
+        // js/game.js
+        const game = {
+            mode: null,
+            team1Picks: [],
+            team2Picks: [],
+            currentDraftTurn: 1,
+
+            startDraft(mode) {
+                this.mode = mode;
+                this.team1Picks = [];
+                this.team2Picks = [];
+                this.currentDraftTurn = 1;
+
+                ui.showScreen('draft');
+
+                document.getElementById('team-2-label').innerText = mode === 'solo' ? '2 (IA)' : '2';
+                ui.renderDraftPool(characterPool, (charId) => this.handleDraftSelection(charId));
+                ui.updateDraftSlots(1, []);
+                ui.updateDraftSlots(2, []);
+                ui.setDraftTurn(1, 0);
+                document.getElementById('btn-start-combat').classList.add('hidden');
+            },
+
+            handleDraftSelection(charId) {
+                if (this.currentDraftTurn === 1) {
+                    if (this.team1Picks.length < 3) {
+                        this.team1Picks.push(charId);
+                        ui.updateDraftSlots(1, this.team1Picks);
+                        ui.setDraftTurn(1, this.team1Picks.length);
+
+                        if (this.team1Picks.length === 3) {
+                            this.currentDraftTurn = 2;
+                            if (this.mode === 'solo') {
+                                ui.setDraftTurn(2, 0);
+                                setTimeout(() => this.runAIDraft(), 800);
+                            } else {
+                                ui.setDraftTurn(2, 0);
+                            }
+                        }
+                    }
+                } else if (this.currentDraftTurn === 2) {
+                    if (this.team2Picks.length < 3) {
+                        this.team2Picks.push(charId);
+                        ui.updateDraftSlots(2, this.team2Picks);
+                        ui.setDraftTurn(2, this.team2Picks.length);
+
+                        if (this.team2Picks.length === 3) {
+                            ui.showStartCombatButton();
+                        }
+                    }
+                }
+            },
+
+            runAIDraft() {
+                const draftInterval = setInterval(() => {
+                    const randomChar = characterPool[Math.floor(Math.random() * characterPool.length)];
+                    this.team2Picks.push(randomChar.id);
+                    ui.updateDraftSlots(2, this.team2Picks);
+                    ui.setDraftTurn(2, this.team2Picks.length);
+
+                    if (this.team2Picks.length === 3) {
+                        clearInterval(draftInterval);
+                        ui.showStartCombatButton();
+                    }
+                }, 800);
+            },
+
+            startCombat() {
+                const team1 = this.team1Picks.map(id => {
+                    const char = cloneCharacter(id);
+                    char.team = 1;
+                    return char;
+                });
+
+                const team2 = this.team2Picks.map(id => {
+                    const char = cloneCharacter(id);
+                    char.team = 2;
+                    return char;
+                });
+
+                ui.showScreen('combat');
+                combat.init(team1, team2, this.mode);
+            },
+
+            returnToMenu() {
+                ui.hideVictoryScreen();
+                ui.showScreen('menu');
+                document.getElementById('combat-log').innerHTML = '<li>A batalha começou!</li>';
+                document.getElementById('combat-team-1').innerHTML = '';
+                document.getElementById('combat-team-2').innerHTML = '';
+            }
+        };
+
+        // js/combat.js
+        const combat = {
+            team1: [],
+            team2: [],
+            allChars: [],
+            turnQueue: [],
+            activeChar: null,
+            selectedSkill: null,
+            isSoloMode: false,
+
+            init(team1, team2, mode) {
+                this.team1 = team1;
+                this.team2 = team2;
+                this.isSoloMode = (mode === 'solo');
+                this.allChars = [...this.team1, ...this.team2];
+                this.turnQueue = [];
+
+                for (let i = 0; i < 3; i++) {
+                    if (this.team1[i]) this.turnQueue.push(this.team1[i]);
+                    if (this.team2[i]) this.turnQueue.push(this.team2[i]);
+                }
+
+                ui.renderCombatTeams(this.team1, this.team2);
+                ui.updateCombatUI(this.allChars);
+                ui.logMessage("Iniciativa definida!", "info");
+
+                setTimeout(() => this.nextTurn(), 1000);
+            },
+
+            nextTurn() {
+                if (this.checkWinCondition()) return;
+
+                this.activeChar = this.turnQueue.shift();
+                this.turnQueue.push(this.activeChar);
+
+                if (this.activeChar.currentHp <= 0) {
+                    return this.nextTurn();
+                }
+
+                ui.setActiveTurnIndicator(this.activeChar);
+                const canAct = this.processStatusEffects(this.activeChar);
+                ui.updateCombatUI(this.allChars);
+
+                if (this.checkWinCondition()) return;
+
+                if (!canAct) {
+                    ui.logMessage(`${this.activeChar.name} está atordoado e pula a vez!`, "info");
+                    setTimeout(() => this.nextTurn(), 1500);
+                    return;
+                }
+
+                ui.logMessage(`É a vez de ${this.activeChar.name}.`, "info");
+
+                if (this.isSoloMode && this.activeChar.team === 2) {
+                    setTimeout(() => this.runAITurn(), 1500);
+                } else {
+                    ui.showActionPanel(this.activeChar, (skill) => this.prepareSkill(skill));
+                }
+            },
+
+            processStatusEffects(char) {
+                let canAct = true;
+                char.statusEffects = char.statusEffects.filter(effect => {
+                    if (effect.type === 'Poison' || effect.type === 'Bleed') {
+                        this.applyDamage(char, effect.dmg, false);
+                        ui.logMessage(`${char.name} sofre ${effect.dmg} de dano por ${effect.type}.`, "dmg");
+                    }
+                    if (effect.type === 'Stun') {
+                        canAct = false;
+                    }
+                    effect.duration--;
+                    return effect.duration > 0;
+                });
+                return canAct;
+            },
+
+            prepareSkill(skill) {
+                this.selectedSkill = skill;
+
+                if (skill.isAoE) {
+                    this.executeSkill([]);
+                } else {
+                    ui.showTargetPrompt();
+                    const enemies = this.activeChar.team === 1 ? this.team2 : this.team1;
+                    ui.setTargetsSelectable(enemies);
+                }
+            },
+
+            handleTargetClick(targetUid) {
+                if (!this.selectedSkill || this.selectedSkill.isAoE) return;
+
+                const target = this.allChars.find(c => c.uid === targetUid);
+                if (!target || target.hp <= 0) return;
+
+                if (target.team === this.activeChar.team) {
+                    ui.logMessage("Você deve selecionar um membro da equipe adversária!", "info");
+                    return;
+                }
+
+                this.executeSkill([target]);
+            },
+
+            cancelSkill() {
+                this.selectedSkill = null;
+                ui.hideTargetPrompt();
+                ui.clearTargetsSelectable();
+            },
+
+            executeSkill(targets) {
+                const skill = this.selectedSkill;
+                if (!skill) return;
+                ui.hideActionPanel();
+                ui.hideTargetPrompt();
+                ui.clearTargetsSelectable();
+
+                const enemies = this.activeChar.team === 1 ? this.team2 : this.team1;
+                const actualTargets = skill.isAoE ? enemies.filter(e => e.currentHp > 0) : targets;
+
+                ui.logMessage(`${this.activeChar.name} usa ${skill.name}!`, "info");
+
+                actualTargets.forEach(target => {
+                    let baseDmg = Math.floor(this.activeChar.atk * skill.damageMult);
+                    if (target.statusEffects.find(eff => eff.type === 'DefDown')) {
+                        baseDmg = Math.floor(baseDmg * 1.5);
+                    }
+
+                    if (baseDmg > 0) {
+                        this.applyDamage(target, baseDmg, true);
+                        ui.logMessage(`${target.name} sofreu ${baseDmg} de dano.`, "dmg");
+                    }
+
+                    if (skill.effect) {
+                        target.statusEffects = target.statusEffects.filter(e => e.type !== skill.effect.type);
+                        const newEffect = JSON.parse(JSON.stringify(skill.effect));
+                        target.statusEffects.push(newEffect);
+                        ui.logMessage(`${target.name} foi afligido por ${skill.effect.type}!`, "info");
+                    }
+                });
+
+                ui.updateCombatUI(this.allChars);
+                this.selectedSkill = null;
+                setTimeout(() => this.nextTurn(), 2000);
+            },
+
+            applyDamage(targetChar, amount, showFloating) {
+                targetChar.currentHp -= amount;
+                if (targetChar.currentHp < 0) targetChar.currentHp = 0;
+
+                if (showFloating) {
+                    ui.showFloatingDamage(targetChar.uid, amount);
+                }
+
+                if (targetChar.currentHp === 0) {
+                    ui.logMessage(`${targetChar.name} foi derrotado!`, "dmg");
+                    targetChar.statusEffects = [];
+                }
+            },
+
+            checkWinCondition() {
+                const team1Alive = this.team1.some(c => c.currentHp > 0);
+                const team2Alive = this.team2.some(c => c.currentHp > 0);
+
+                if (!team1Alive || !team2Alive) {
+                    let winner = !team1Alive ? 2 : 1;
+                    ui.showVictoryScreen(winner);
+                    return true;
+                }
+                return false;
+            },
+
+            runAITurn() {
+                const enemiesAlive = this.team1.filter(c => c.currentHp > 0);
+                if (enemiesAlive.length === 0) return;
+
+                let chosenSkill = null;
+                let chosenTarget = null;
+
+                const stunSkill = this.activeChar.skills.find(s => s.effect && s.effect.type === 'Stun');
+                if (stunSkill) {
+                    chosenSkill = stunSkill;
+                    chosenTarget = enemiesAlive.reduce((max, obj) => obj.atk > max.atk ? obj : max, enemiesAlive[0]);
+                }
+                else if (enemiesAlive.length > 1) {
+                    const aoeSkill = this.activeChar.skills.find(s => s.isAoE);
+                    if (aoeSkill) {
+                        chosenSkill = aoeSkill;
+                    }
+                }
+
+                if (!chosenSkill) {
+                    chosenSkill = this.activeChar.skills.reduce((max, obj) => obj.damageMult > max.damageMult ? obj : max, this.activeChar.skills[0]);
+                    chosenTarget = enemiesAlive.reduce((min, obj) => obj.currentHp < min.currentHp ? obj : min, enemiesAlive[0]);
+                }
+
+                if (chosenSkill.isAoE) {
+                    this.selectedSkill = chosenSkill;
+                    this.executeSkill([]);
+                } else {
+                    this.selectedSkill = chosenSkill;
+                    this.executeSkill([chosenTarget]);
+                }
+            }
+        };
+    </script>
+</body>
+
+</html>
